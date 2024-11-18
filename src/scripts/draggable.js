@@ -94,9 +94,10 @@ H5P.TextDraggable = (function ($) {
   /**
    * Reverts the draggable to its' provided container.
    *
-   * @params {jQuery} $container The parent which the draggable will revert to.
+   * @param {jQuery} $container The parent which the draggable will revert to.
+   * @param {boolean} skipAnimation If true, skip animation when reverting.
    */
-  Draggable.prototype.revertDraggableTo = function ($container) {
+  Draggable.prototype.revertDraggableTo = function ($container, skipAnimation = false) {
     // get the relative distance between draggable and container.
     var offLeft = this.$draggable.offset().left - $container.offset().left;
     var offTop = this.$draggable.offset().top - $container.offset().top;
@@ -104,9 +105,13 @@ H5P.TextDraggable = (function ($) {
     // Prepend draggable to new container, but keep the offset,
     // then animate to new container's top:0, left:0
     this.$draggable.detach()
-      .prependTo($container)
-      .css({left: offLeft, top: offTop})
-      .animate({left: 0, top: 0});
+      .prependTo($container);
+
+    if (!skipAnimation) {
+      this.$draggable
+        .css({left: offLeft, top: offTop})
+        .animate({left: 0, top: 0});
+    }
   };
 
   /**

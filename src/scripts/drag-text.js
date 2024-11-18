@@ -988,14 +988,14 @@ H5P.DragText = (function ($, Question, ConfirmationDialog) {
    * Resets a draggable
    *
    * @param {H5P.TextDraggable} draggable
-   *
+   * @param {boolean} skipAnimation If true, skip animation when reverting.
    * @fires H5P.DragText#revert
    * @fires Question#resize
    */
-  DragText.prototype.revert = function (draggable) {
+  DragText.prototype.revert = function (draggable, skipAnimation = false) {
     var droppable = draggable.removeFromZone();
     var target = droppable ? droppable.getElement() : undefined;
-    draggable.revertDraggableTo(this.$draggables);
+    draggable.revertDraggableTo(this.$draggables, skipAnimation);
     this.setDraggableAriaLabel(draggable);
 
     this.trigger('revert', { element: draggable.getElement(), target: target });
@@ -1307,6 +1307,89 @@ H5P.DragText = (function ($, Question, ConfirmationDialog) {
    */
   DragText.prototype.resetDraggables = function () {
     Util.shuffle(this.draggables).forEach(this.revert, this);
+  };
+
+  /**
+   * Set current state.
+   * @param {object} state State to set, must match return value structure of getCurrentState.
+   */
+  DragText.prototype.setCurrentState = function (state) {
+    state = this.sanitizeState(state);
+    if (state.length === 0) {
+      return;
+    }
+
+    this.draggables.forEach((draggable) => {
+      if (state.every((stateItem) => stateItem.draggable !== draggable.getInitialIndex())) {
+        this.revert(draggable, true);
+      }
+    });
+
+    state.forEach((stateItem) => {
+      const moveDraggable = this.getDraggableByInitialIndex(stateItem.draggable);
+      const moveToDroppable = this.droppables[stateItem.droppable];
+
+      this.drop(moveDraggable, moveToDroppable);
+
+      if (this.params.behaviour.instantFeedback) {
+        if (moveToDroppable !== null) {
+          moveToDroppable.addFeedback();
+        }
+
+        if (moveToDroppable.isCorrect()) {
+          moveToDroppable.disableDropzoneAndContainedDraggable();
+        }
+      }
+    });
+
+    this.answered = this.getAnswerGiven();
+
+    this.hideAllSolutions();
+    this.hideEvaluation();
+    this.hideExplanation();
+
+    if (this.params.behaviour.instantFeedback) {
+      if (this.isAllAnswersFilled() && !this.showEvaluation()) {
+        if (this.params.behaviour.enableSolutionsButton) {
+          this.initShowShowSolutionButton = true;
+        }
+        if (this.params.behaviour.enableRetry) {
+          this.initShowTryAgainButton = true;
+        }
+      }
+    }
+    else {
+      this.enableAllDropzonesAndDraggables();
+      this.hideButton('try-again');
+      this.hideButton('show-solution');
+      if (!this.params.behaviour.instantFeedback) {
+        this.showButton('check-answer');
+      }
+    }
+
+    this.trigger('resize');
+  };
+
+  /**
+   * Sanitize state.
+   * @param {object[]} state State.
+   * @returns {object[]} Sanitized state.
+   */
+  DragText.prototype.sanitizeState = function (state = {}) {
+    if (!Array.isArray(state)) {
+      return [];
+    }
+
+    return state.filter((entry) => {
+      if (typeof entry !== 'object' || entry === null) {
+        return false;
+      }
+
+      return (
+        typeof entry.draggable === 'number' && entry.draggable >= 0 && entry.draggable < this.draggables.length &&
+        typeof entry.droppable === 'number' && entry.droppable >= 0 && entry.droppable < this.droppables.length
+      );
+    });
   };
 
   /**
